@@ -6,12 +6,15 @@ varBackupDir=/home/nfs/homelab-backup
 varConfigDir=/srv/docker
 varOptDir=/opt/docker/homelab
 varMediaStorage=/media/storage # attached SSD for direct downloads, cache, db
-varRemoteMediaStorage=/media/nas # metwork storage for media, backups - large storage (RAID0)
+varRemoteMediaStorage=/media/nfs # metwork storage for media, backups - large storage (RAID0)
 varSubnet=192.168.1.0/24
+# Define the directory and repository
+dir="homelab-docker"
+repo="https://github.com/dhont/homelab-docker.git"
 
 
 #####
-Reusable functions
+# Reusable functions
 #####
 
 add_user_if_not_exists() {
@@ -53,21 +56,52 @@ sudo apt install nfs-common samba docker
 # 3. File System: Configuration and Core Options
 cd /srv
 mkdir -p {docker,cache,logs}
+mkdir -p $varOptDir
+
 cd $varOptDir
-git clone https://github.com/dhont/homelab-docker.git
+
+# Check if the directory exists
+if [ -d "$dir" ]; then
+    # Directory exists, so perform a git pull
+    echo "Directory $dir exists. Performing git pull..."
+    cd "$dir"
+    git pull
+else
+    # Directory does not exist, so perform a git clone
+    echo "Directory $dir does not exist. Performing git clone..."
+    git clone "$repo" "$dir"
+fi
 
 # 4. File System: Media storage (aka your files)
 cd $varMediaStorage # This uses MergerFS. For a simpler version, use /data
 mkdir -p db
-mkdir -p downloads/{audiobooks,music,podcasts,movies,tv}
+mkdir -p downloads/audiobooks
+mkdir -p downloads/music
+mkdir -p downloads/podcasts
+mkdir -p downloads/movies
+mkdir -p downloads/tv
+mkdir -p media
+
 
 mkdir -p staticfiles
-sudo chown -R $USER:$USER $varMediaStorage/{db,downloads,media,staticfiles}
-sudo chmod -R a=,a+rX,u+w,g+w $varMediaStorage/{db,downloads,media,staticfiles}
+#sudo chown -R "$USER:$USER" "${varMediaStorage}/db" "${varMediaStorage}/downloads" "${varMediaStorage}/media" "${varMediaStorage}/staticfiles"
+
+sudo chmod -R a=,a+rX,u+w,g+w "${varMediaStorage}/db" "${varMediaStorage}/downloads" "${varMediaStorage}/media" "${varMediaStorage}/staticfiles"
+
 
 # Network Storage: Media storage (aka your files)
 cd $varRemoteMediaStorage # This uses NFS
-mkdir -p downloads/{audiobooks,music,podcasts,movies,tv}
+mkdir -p downloads/audiobooks
+mkdir -p downloads/music
+mkdir -p downloads/podcasts
+mkdir -p downloads/movies
+mkdir -p downloads/tv
+
+
+mkdir -p staticfiles
+#Ssudo chown -R $USER:$USER $varRemoteMediaStorage/downloads
+sudo chmod -R a=,a+rX,u+w,g+w $varRemoteMediaStorage/downloads
+
 
 # 5. Copy config files
 

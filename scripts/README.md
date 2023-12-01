@@ -2,12 +2,17 @@
 
 This is a guide of how I am setting up the prerequisites on my homeserver, running Ubuntu server. In order to be able to start the homelab you'll need to first run the script and then to manually execute commands in order to personalize more the experience. This guide will help you just that.
 
+## Install prerequisites
+
+```console
+sudo apt install nfs-common samba docker
+```
 
 ## Download the installation script
 I created a separated install script out of the original start.sh.
 
 
-```console
+
 /bin/bash -c "$(curl -s https://raw.githubusercontent.com/dhont/homelab-docker/main/scripts/install.sh)"
 ```
 OR (Recommended) download and *updatethe file as needed*  before execution : 
