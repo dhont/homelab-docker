@@ -72,6 +72,156 @@ services:
     restart: always
 
 ####################
+# Home Automations
+####################
+
+  homebridge:
+    image: homebridge/homebridge:latest
+    container_name: homebridge
+    network_mode: host
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      HOMEBRIDGE_CONFIG_UI: 1
+      HOMEBRIDGE_CONFIG_UI_PORT: 8581
+    labels:
+            - "com.centurylinklabs.watchtower.scope=scrypted"
+            - diun.enable=true
+            - homepage.group=HomeAutomations
+            - homepage.name=Scrypted
+            - homepage.icon=tandoorrecipes
+            - homepage.href=http://${EXTERNAL_SCRYPTED}.${DOMAIN}
+            - homepage.description=Scryped for Ring Cameras
+
+    volumes:
+      - ${CONFIGDIR}/homebridge:/homebridge
+    
+    healthcheck:
+      test: curl --fail localhost:8581 || exit 1
+      interval: 60s
+      retries: 5
+      start_period: 300s
+      timeout: 2s  
+    logging:
+      driver: json-file
+      options:
+        max-size: "10mb"
+        max-file: "1"
+    restart: unless-stopped
+
+  scrypted:
+        environment:
+            # Scrypted NVR Storage (Part 2 of 3)
+
+            # Uncomment the next line to configure the NVR plugin to store recordings
+            # use the /nvr directory within the container. This can also be configured
+            # within the plugin manually.
+            # The drive or network share will ALSO need to be configured in the volumes
+            # section below.
+            # - SCRYPTED_NVR_VOLUME=/nvr
+
+            - SCRYPTED_WEBHOOK_UPDATE_AUTHORIZATION=Bearer 975d27ef3e520a170aceb157e493ef49
+            - SCRYPTED_WEBHOOK_UPDATE=http://localhost:10444/v1/update
+
+            # Uncomment next 3 lines for Nvidia GPU support.
+            # - NVIDIA_VISIBLE_DEVICES=all
+            # - NVIDIA_DRIVER_CAPABILITIES=all
+
+            # Uncomment next line to run avahi-daemon inside the container
+            # Don't use if dbus and avahi run on the host and are bind-mounted
+            # (see below under "volumes")
+            # - SCRYPTED_DOCKER_AVAHI=true
+        # runtime: nvidia
+
+        volumes:
+            # Scrypted NVR Storage (Part 3 of 3)
+
+            # Modify to add the additional volume for Scrypted NVR.
+            # The following example would mount the /mnt/sda/video path on the host
+            # to the /nvr path inside the docker container.
+            # - /mnt/media/video:/nvr
+
+            # Or use a network mount from one of the CIFS/NFS examples at the top of this file.
+            # - type: volume
+            #   source: nvr
+            #   target: /nvr
+            #   volume:
+            #     nocopy: true
+
+            # uncomment the following lines to expose Avahi, an mDNS advertiser.
+            # make sure Avahi is running on the host machine, otherwise this will not work.
+            # not compatible with Avahi enabled via SCRYPTED_DOCKER_AVAHI=true
+            # - /var/run/dbus:/var/run/dbus
+            # - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
+
+            # Default volume for the Scrypted database. Typically should not be changed.
+            - ${CONFIGDIR}/scrypted/volume:/server/volume
+        devices: [
+            # uncomment the common systems devices to pass
+            # them through to docker.
+
+            # all usb devices, such as coral tpu
+            # "/dev/bus/usb:/dev/bus/usb",
+
+            # hardware accelerated video decoding, opencl, etc.
+            # "/dev/dri:/dev/dri",
+
+            # uncomment below as necessary.
+            # zwave usb serial device
+
+            # "/dev/ttyACM0:/dev/ttyACM0",
+
+            # coral PCI devices
+            # "/dev/apex_0:/dev/apex_0",
+            # "/dev/apex_1:/dev/apex_1",
+        ]
+
+        container_name: scrypted
+        restart: unless-stopped
+        network_mode: host
+        image: koush/scrypted
+
+        # logging is noisy and will unnecessarily wear on flash storage.
+        # scrypted has per device in memory logging that is preferred.
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "10"
+        labels:
+            - "com.centurylinklabs.watchtower.scope=scrypted"
+            - diun.enable=true
+            - homepage.group=HomeAutomations
+            - homepage.name=Scrypted
+            - homepage.icon=tandoorrecipes
+            - homepage.href=http://${EXTERNAL_SCRYPTED}.${DOMAIN}
+            - homepage.description=Scryped for Ring Cameras
+
+    # watchtower manages updates for Scrypted.
+  watchtower:
+        environment:
+            - WATCHTOWER_HTTP_API_TOKEN=975d27ef3e520a170aceb157e493ef49
+            - WATCHTOWER_HTTP_API_UPDATE=true
+            - WATCHTOWER_SCOPE=scrypted
+            # remove the following line to never allow docker to auto update.
+            # this is not recommended.
+            - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
+        image: containrrr/watchtower
+        container_name: scrypted-watchtower
+        restart: unless-stopped
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        labels:
+            - "com.centurylinklabs.watchtower.scope=scrypted"
+        ports:
+            # The auto update port 10444 can be configured
+            # Must match the port in the auto update url above.
+            - 10444:8080
+        # check for updates once an hour (interval is in seconds)
+        command: --interval 3600 --cleanup --scope scrypted
+
+####################
 # Recipes
 ####################
 
@@ -160,6 +310,62 @@ services:
 ####################
 # Media
 ####################
+
+  plex:
+    image: plexinc/pms-docker
+    container_name: plex
+    
+    profiles:
+      - media
+      - media-request
+
+    user: ${PUID}:${PGID}
+    group_add:
+      - ${GID_HARDWAREACC} # gid of your `render` group
+
+    networks:
+      - htpc-net
+      - caddy-net # provides access for the reverse proxy
+    
+    ports:
+      - ${PORT_HTPC_HTTP}:32400 #HTTP webUI
+      - ${PORT_HTPC_HTTPS}:32433 #HTTPS webUI
+      - ${PORT_HTPC_LOCAL}:5353/udp #optional. (older Bonjour/Avahi network discovery)
+      - ${PORT_HTPC_DLNA}:1900/udp #optional. Service discovery used by DNLA and clients.
+      - ${PORT_HTPC_DLNA}:32410/udp #optional. (current GDM network discovery)
+      - ${PORT_HTPC_DLNA}:32412/udp #optional. (current GDM network discovery)
+      - ${PORT_HTPC_DLNA}:32413/udp #optional. (current GDM network discovery)
+      - ${PORT_HTPC_DLNA}:32414/udp #optional. (current GDM network discovery)    
+      - ${PORT_HTPC_DLNA}:32469 #optional. (access to the Plex DLNA Server)    
+          
+    devices:
+      - /dev/dri:/dev/dri
+
+    environment:
+      TZ: ${TZ}
+    #  - PUID=${PUID} # default user id, defined in .env
+    #  - PGID=${PGID} # default group id, defined in .env
+    #  - VERSION=docker
+    #  - ALLOWED_NETWORKS=192.168.1.0/24 #treat these IP addresses as part of your LAN when applying bandwidth controls.
+    
+    labels:
+      - diun.enable=true
+      - homepage.group=Media
+      - homepage.name=Plex
+      - homepage.icon=plex
+      - homepage.href=http://${SERVER_URL}:${PORT_HTPC_HTTP}
+      - homepage.widget.type=plex
+      - homepage.widget.url=http://${SERVER_URL}:${PORT_HTPC_HTTP}
+      - homepage.widget.key=${HOMEPAGE_PLEX_API}
+    
+    volumes:
+    #  - ${ROOT}/config/plex:/config # config files
+    #  - ${EXT}/complete:/complete
+    #  - ${EXT}/transcode:/transcode
+      - ${CONFIGDIR}/plex:/config
+      - ${CACHEDIR}/plex:/cache
+      - ${MEDIADIR}:/media:ro #naming, etc all handled by *arr apps
+    restart: unless-stopped
 
   jellyfin:
     container_name: jellyfin
