@@ -5,7 +5,8 @@
 varBackupDir=/home/user/backup
 varConfigDir=/srv/docker
 varOptDir=/opt/docker/homelab
-varMediaStorage=/mnt/storage
+varMediaStorage=/media/storage # attached SSD for direct downloads, cache, db
+varRemoteMediaStorage=/media/nas # metwork storage for media, backups - large storage (RAID0)
 
 
 
@@ -19,17 +20,21 @@ varMediaStorage=/mnt/storage
 cd /srv
 mkdir -p {docker,cache,logs}
 cd $varOptDir
-git clone https://github.com/jgwehr/homelab-docker.git
+git clone https://github.com/dhont/homelab-docker.git
 
 
 # File System: Media storage (aka your files)
 cd $varMediaStorage # This uses MergerFS. For a simpler version, use /data
 mkdir -p db
 mkdir -p downloads/{audiobooks,music,podcasts,movies,tv}
-mkdir -p media/{audiobooks,music,pictures,podcasts,movies,tv}
+
 mkdir -p staticfiles
 sudo chown -R $USER:$USER $varMediaStorage/{db,downloads,media,staticfiles}
 sudo chmod -R a=,a+rX,u+w,g+w $varMediaStorage/{db,downloads,media,staticfiles}
+
+# Network Storage: Media storage (aka your files)
+cd $varRemoteMediaStorage # This uses NFS
+mkdir -p downloads/{audiobooks,music,podcasts,movies,tv}
 
 
 
@@ -52,6 +57,9 @@ sudo apt install samba
 cp -rpi $varOptDir/configtemplates/samba/smb.conf /etc/samba/smb.conf
 sudo ufw allow samba
 
+# nfs
+# sudo apt install nfs-common
+
 # Unbound
 cp -rpi $varOptDir/configtemplates/unbound/* $varConfigDir/unbound
 
@@ -63,7 +71,7 @@ sudo usermod -aG docker $USER
 
 docker network create web
 docker network create caddy-net
-docker network create -d bridge --subnet 172.20.0.0/16 dns-net
+docker network create -d bridge subnet 192.168.1.0/24 dns-net
 docker volume create crowdsec-config
 docker volume create crowdsec-db
 
