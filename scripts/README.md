@@ -11,11 +11,10 @@ sudo apt install nfs-common samba docker
 ## Download the installation script
 I created a separated install script out of the original start.sh.
 
-
-
+```console
 /bin/bash -c "$(curl -s https://raw.githubusercontent.com/dhont/homelab-docker/main/scripts/install.sh)"
 ```
-OR (Recommended) download and *updatethe file as needed*  before execution : 
+OR (Recommended) download and *update the file as needed*  before execution : 
 
 ```console
 curl -s https://raw.githubusercontent.com/dhont/homelab-docker/main/scripts/install.sh

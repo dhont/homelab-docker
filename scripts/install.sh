@@ -3,7 +3,7 @@
 #####
 
 varBackupDir=/home/nfs/homelab-backup
-varConfigDir=/srv/docker
+varConfigDir=/srv/docker/config
 varOptDir=/opt/docker/homelab
 varMediaStorage=/media/storage # attached SSD for direct downloads, cache, db
 varRemoteMediaStorage=/media/nfs # metwork storage for media, backups - large storage (RAID0)
@@ -55,8 +55,11 @@ sudo apt install nfs-common samba docker
 
 # 3. File System: Configuration and Core Options
 cd /srv
-mkdir -p {docker,cache,logs}
+mkdir -p docker
+mkdir -p cache
+mkdir -p logs
 mkdir -p $varOptDir
+mkdir -p $varConfigDir
 
 cd $varOptDir
 
