@@ -7,7 +7,7 @@ varConfigDir=/srv/docker/config
 varOptDir=/opt/docker/homelab
 varMediaStorage=/media/storage # attached SSD for direct downloads, cache, db
 varRemoteMediaStorage=/media/nfs # metwork storage for media, backups - large storage (RAID0)
-varSubnet=192.168.1.0/24
+varSubnet=172.20.0.0/16
 # Define the directory and repository
 dir="homelab-docker"
 repo="https://github.com/dhont/homelab-docker.git"
